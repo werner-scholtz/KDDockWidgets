@@ -41,7 +41,7 @@ cross-window drop mechanism.
 
 - Flutter `main` branch
 - `fvm`
-- Linux desktop target
+- Linux or Windows desktop target
 - Flutter windowing enabled via `fvm flutter config --enable-windowing`
 
 This example uses `package:flutter/src/widgets/_window.dart`, so it is pinned to
@@ -54,6 +54,9 @@ cd examples/flutter/poc
 fvm flutter pub get
 fvm flutter config --enable-windowing
 fvm flutter run -d linux
+
+# or on Windows
+fvm flutter run -d windows
 ```
 
 ## Validate
@@ -66,6 +69,8 @@ fvm flutter analyze
 
 ## Current scope
 
+- On Windows, crossing the detach threshold can create the real detached native
+  window during the live drag and keep it following the cursor.
 - Drag a docked tab far enough to start a proxy drag.
 - Release outside every dock to create a real secondary window.
 - Move a tab into another existing window when the frontend can route a real
@@ -74,7 +79,8 @@ fvm flutter analyze
 
 ## Explicit non-goals
 
-- Live handoff of the active drag to a newly created native window.
+- Live handoff of the active drag to a newly created native window on
+  Linux/Wayland through public Flutter/GTK APIs.
 - General native drag-and-drop outside this Flutter multi-window process.
 - Trusting synthetic Dart-side window geometry as a cross-window drop source on
 	Wayland.

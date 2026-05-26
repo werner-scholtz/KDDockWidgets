@@ -3,28 +3,22 @@
 
 library;
 
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
-import 'package:flutter/src/foundation/_features.dart';
 import 'package:flutter/src/widgets/_window.dart';
-import 'package:flutter/src/widgets/_window_linux.dart';
+
+import 'experimental_window_api/experimental_window_api_backend.dart';
+import 'experimental_window_api/experimental_window_api_linux.dart';
+import 'experimental_window_api/experimental_window_api_windows.dart';
 
 // Centralizes the experimental Flutter multi-window dependency used by this
 // POC. These symbols currently live under `package:flutter/src/...`, so the
 // rest of the example should consume the wrappers below rather than private
 // Flutter libraries directly.
 
-const String experimentalWindowingEnableCommand =
-    'fvm flutter config --enable-windowing';
-
-bool get experimentalWindowingEnabled => isWindowingEnabled;
-
-String describeExperimentalWindowingRequirement() {
-  return 'Flutter windowing is disabled for this checkout. '
-      'This POC depends on Flutter\'s experimental multi-window API.\n\n'
-      'Enable it once with:\n'
-      '$experimentalWindowingEnableCommand\n\n'
-      'Then rebuild or rerun the Linux app.';
-}
+final ExperimentalWindowPlatformBackend _windowPlatformBackend =
+    _createWindowPlatformBackend();
 
 final class ExperimentalWindowController {
   ExperimentalWindowController({
@@ -39,10 +33,12 @@ final class ExperimentalWindowController {
 
   final RegularWindowController _controller;
 
-  int get linuxFlutterViewHandleAddress {
-    final WindowControllerLinux linuxController =
-        _controller as WindowControllerLinux;
-    return linuxController.flutterViewHandle.address;
+  int get nativeWindowHandleAddress {
+    return _windowPlatformBackend.nativeWindowHandleAddress(_controller);
+  }
+
+  void setTitle(String title) {
+    _controller.setTitle(title);
   }
 
   void destroy() {
@@ -114,4 +110,19 @@ class _CallbackWindowDelegate with RegularWindowControllerDelegate {
     onDestroyed?.call();
     super.onWindowDestroyed();
   }
+}
+
+ExperimentalWindowPlatformBackend _createWindowPlatformBackend() {
+  if (Platform.isLinux) {
+    return LinuxExperimentalWindowPlatformBackend();
+  }
+
+  if (Platform.isWindows) {
+    return WindowsExperimentalWindowPlatformBackend();
+  }
+
+  throw UnsupportedError(
+    'Experimental windowing handles are only implemented for Linux and '
+    'Windows in this POC.',
+  );
 }

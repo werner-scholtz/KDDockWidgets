@@ -1,4 +1,4 @@
-import 'dart:ffi' as ffi;
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -6,20 +6,48 @@ import 'package:flutter/services.dart';
 
 import 'dock_controller.dart';
 import 'experimental_window_api.dart';
+import 'native_dock_drag/native_dock_drag_backend.dart';
+import 'native_dock_drag/native_dock_drag_linux.dart';
+import 'native_dock_drag/native_dock_drag_windows.dart';
 
 typedef NativeDockHoverChanged = void Function(int windowId);
 typedef NativeDockHoverCleared = void Function(int windowId);
 typedef NativeDockDragFinished = void Function();
+typedef NativeWindowHeaderDragStarted = void Function(int sourceWindowId);
+typedef NativeWindowHeaderDragFinished =
+    void Function({required int sourceWindowId, required int? targetWindowId});
+
+enum NativeWindowHeaderDockTargetingMode {
+  overlap,
+  cursor,
+  hybrid;
+
+  int get nativeValue => switch (this) {
+    NativeWindowHeaderDockTargetingMode.overlap => 0,
+    NativeWindowHeaderDockTargetingMode.cursor => 1,
+    NativeWindowHeaderDockTargetingMode.hybrid => 2,
+  };
+}
+
+final NativeDockDragPlatformBackend _nativeDockDragPlatformBackend =
+    _createNativeDockDragPlatformBackend();
 
 final class NativeDockDragCoordinator extends ChangeNotifier {
   NativeDockDragCoordinator({
     required NativeDockHoverChanged onHoveredWindowChanged,
     required NativeDockHoverCleared onHoveredWindowLeft,
     required NativeDockDragFinished onNativeDragFinished,
+    required NativeWindowHeaderDragStarted onWindowHeaderDragStarted,
+    required NativeWindowHeaderDragFinished onWindowHeaderDragFinished,
+    NativeWindowHeaderDockTargetingMode windowHeaderDockTargetingMode =
+        NativeWindowHeaderDockTargetingMode.cursor,
   }) : _onHoveredWindowChanged = onHoveredWindowChanged,
        _onHoveredWindowLeft = onHoveredWindowLeft,
-       _onNativeDragFinished = onNativeDragFinished {
+       _onNativeDragFinished = onNativeDragFinished,
+       _onWindowHeaderDragStarted = onWindowHeaderDragStarted,
+       _onWindowHeaderDragFinished = onWindowHeaderDragFinished {
     _channel.setMethodCallHandler(_handleMethodCall);
+    setWindowHeaderDockTargetingMode(windowHeaderDockTargetingMode);
   }
 
   static const MethodChannel _channel = MethodChannel('kddw_native_dock_drag');
@@ -27,38 +55,67 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
   final NativeDockHoverChanged _onHoveredWindowChanged;
   final NativeDockHoverCleared _onHoveredWindowLeft;
   final NativeDockDragFinished _onNativeDragFinished;
+  final NativeWindowHeaderDragStarted _onWindowHeaderDragStarted;
+  final NativeWindowHeaderDragFinished _onWindowHeaderDragFinished;
 
   bool _nativeDragActive = false;
   _PendingAttachedDragWindow? _pendingAttachedDragWindow;
 
   bool get isNativeDragActive => _nativeDragActive;
 
+  int? get mainWindowHandle {
+    return _nativeDockDragPlatformBackend.mainWindowHandle;
+  }
+
+  void setWindowHeaderDockTargetingMode(
+    NativeWindowHeaderDockTargetingMode mode,
+  ) {
+    _nativeDockDragPlatformBackend.setWindowHeaderDockTargetingMode(
+      mode.nativeValue,
+    );
+    pocLog('nativeDrag setWindowHeaderDockTargetingMode mode=$mode');
+  }
+
+  void setMainWindowTitle(String title) {
+    if (!Platform.isWindows) {
+      return;
+    }
+
+    unawaited(
+      _channel
+          .invokeMethod<void>('setMainWindowTitle', <String, Object?>{
+            'title': title,
+          })
+          .catchError((Object error) {
+            pocLog('nativeDrag setMainWindowTitle error=$error');
+          }),
+    );
+  }
+
   bool registerWindow({
     required int windowId,
     required ExperimentalWindowController controller,
   }) {
-    final _NativeDockDragBindings? bindings =
-        _NativeDockDragBindings.maybeLoad();
-    if (bindings == null) {
-      return false;
-    }
+    return registerWindowHandle(
+      windowId: windowId,
+      nativeWindowHandle: controller.nativeWindowHandleAddress,
+    );
+  }
 
-    final bool registered = bindings.registerWindow(
-      windowId,
-      controller.linuxFlutterViewHandleAddress,
+  bool registerWindowHandle({
+    required int windowId,
+    required int nativeWindowHandle,
+  }) {
+    final bool registered = _nativeDockDragPlatformBackend.registerWindowHandle(
+      windowId: windowId,
+      nativeWindowHandle: nativeWindowHandle,
     );
     pocLog('nativeDrag registerWindow window=$windowId ok=$registered');
     return registered;
   }
 
   void unregisterWindow({required int windowId}) {
-    final _NativeDockDragBindings? bindings =
-        _NativeDockDragBindings.maybeLoad();
-    if (bindings == null) {
-      return;
-    }
-
-    bindings.unregisterWindow(windowId);
+    _nativeDockDragPlatformBackend.unregisterWindow(windowId: windowId);
     pocLog('nativeDrag unregisterWindow window=$windowId');
   }
 
@@ -86,16 +143,10 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
     required int windowId,
     required Offset dragAnchor,
   }) {
-    final _NativeDockDragBindings? bindings =
-        _NativeDockDragBindings.maybeLoad();
-    if (bindings == null) {
-      return false;
-    }
-
-    final bool attached = bindings.attachDragWindow(
-      windowId,
-      dragAnchor.dx.round(),
-      dragAnchor.dy.round(),
+    final bool attached = _nativeDockDragPlatformBackend.attachDragWindow(
+      windowId: windowId,
+      anchorX: dragAnchor.dx.round(),
+      anchorY: dragAnchor.dy.round(),
     );
     pocLog(
       'nativeDrag attachDragWindow window=$windowId '
@@ -109,13 +160,10 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
       return false;
     }
 
-    final _NativeDockDragBindings? bindings =
-        _NativeDockDragBindings.maybeLoad();
-    if (bindings == null) {
-      return false;
-    }
-
-    final bool started = bindings.startDrag(sourceWindowId, tabId);
+    final bool started = _nativeDockDragPlatformBackend.startDrag(
+      sourceWindowId: sourceWindowId,
+      tabId: tabId,
+    );
     pocLog('nativeDrag start source=$sourceWindowId tab=$tabId ok=$started');
     if (!started) {
       _pendingAttachedDragWindow = null;
@@ -137,10 +185,6 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
   }
 
   Future<void> _handleMethodCall(MethodCall call) async {
-    if (!_nativeDragActive && call.method != 'dragEnded') {
-      return;
-    }
-
     final Map<Object?, Object?>? args =
         call.arguments as Map<Object?, Object?>?;
     switch (call.method) {
@@ -157,6 +201,9 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
         }
         break;
       case 'dragEnded':
+        if (!_nativeDragActive) {
+          return;
+        }
         final bool accepted = args?['accepted'] == true;
         final int? windowId = (args?['windowId'] as num?)?.toInt();
         if (accepted && windowId != null) {
@@ -166,6 +213,23 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
         _nativeDragActive = false;
         notifyListeners();
         _onNativeDragFinished();
+        break;
+      case 'windowHeaderDragStarted':
+        final int? sourceWindowId = (args?['sourceWindowId'] as num?)?.toInt();
+        if (sourceWindowId != null) {
+          _onWindowHeaderDragStarted(sourceWindowId);
+        }
+        break;
+      case 'windowHeaderDragEnded':
+        final int? sourceWindowId = (args?['sourceWindowId'] as num?)?.toInt();
+        if (sourceWindowId == null) {
+          return;
+        }
+        final int? targetWindowId = (args?['targetWindowId'] as num?)?.toInt();
+        _onWindowHeaderDragFinished(
+          sourceWindowId: sourceWindowId,
+          targetWindowId: targetWindowId,
+        );
         break;
     }
   }
@@ -188,68 +252,14 @@ final class _PendingAttachedDragWindow {
   final Offset dragAnchor;
 }
 
-final class _NativeDockDragBindings {
-  _NativeDockDragBindings._({
-    required this.registerWindow,
-    required this.unregisterWindow,
-    required this.attachDragWindow,
-    required this.startDrag,
-  });
-
-  final bool Function(int windowId, int viewHandle) registerWindow;
-  final void Function(int windowId) unregisterWindow;
-  final bool Function(int windowId, int anchorX, int anchorY) attachDragWindow;
-  final bool Function(int sourceWindowId, int tabId) startDrag;
-
-  static _NativeDockDragBindings? _instance;
-  static bool _loadAttempted = false;
-
-  static _NativeDockDragBindings? maybeLoad() {
-    if (!Platform.isLinux) {
-      return null;
-    }
-
-    if (_instance != null || _loadAttempted) {
-      return _instance;
-    }
-
-    _loadAttempted = true;
-
-    try {
-      final ffi.DynamicLibrary library = ffi.DynamicLibrary.executable();
-      final int Function(int, int) registerWindowRaw = library
-          .lookupFunction<
-            ffi.Int32 Function(ffi.Int32, ffi.IntPtr),
-            int Function(int, int)
-          >('KddwDockDragBridge_RegisterWindow');
-      final void Function(int) unregisterWindow = library
-          .lookupFunction<ffi.Void Function(ffi.Int32), void Function(int)>(
-            'KddwDockDragBridge_UnregisterWindow',
-          );
-      final int Function(int, int, int) attachDragWindowRaw = library
-          .lookupFunction<
-            ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Int32),
-            int Function(int, int, int)
-          >('KddwDockDragBridge_AttachDragWindow');
-      final int Function(int, int) startDragRaw = library
-          .lookupFunction<
-            ffi.Int32 Function(ffi.Int32, ffi.Int32),
-            int Function(int, int)
-          >('KddwDockDragBridge_StartDrag');
-
-      _instance = _NativeDockDragBindings._(
-        registerWindow: (int windowId, int viewHandle) =>
-            registerWindowRaw(windowId, viewHandle) != 0,
-        unregisterWindow: unregisterWindow,
-        attachDragWindow: (int windowId, int anchorX, int anchorY) =>
-            attachDragWindowRaw(windowId, anchorX, anchorY) != 0,
-        startDrag: (int sourceWindowId, int tabId) =>
-            startDragRaw(sourceWindowId, tabId) != 0,
-      );
-    } catch (_) {
-      _instance = null;
-    }
-
-    return _instance;
+NativeDockDragPlatformBackend _createNativeDockDragPlatformBackend() {
+  if (Platform.isLinux) {
+    return LinuxNativeDockDragPlatformBackend();
   }
+
+  if (Platform.isWindows) {
+    return WindowsNativeDockDragPlatformBackend();
+  }
+
+  return UnsupportedNativeDockDragPlatformBackend();
 }

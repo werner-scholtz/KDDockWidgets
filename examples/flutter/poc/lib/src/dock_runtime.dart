@@ -9,8 +9,10 @@ typedef DetachedWindowRootBuilder = Widget Function(int windowId);
 final class DockRuntimeCoordinator {
   DockRuntimeCoordinator({
     required this.controller,
-    required ExperimentalWindowController rootWindowController,
-  }) {
+    ExperimentalWindowController? rootWindowController,
+    NativeWindowHeaderDockTargetingMode windowHeaderDockTargetingMode =
+        NativeWindowHeaderDockTargetingMode.cursor,
+  }) : _rootWindowController = rootWindowController {
     nativeDockDragCoordinator = NativeDockDragCoordinator(
       onHoveredWindowChanged: (int windowId) {
         controller.updateHoveredDockTarget(windowId: windowId);
@@ -19,12 +21,16 @@ final class DockRuntimeCoordinator {
         controller.clearHoveredDockTargetIfCurrent(windowId: windowId);
       },
       onNativeDragFinished: _handleNativeDragFinished,
+      onWindowHeaderDragStarted: (int sourceWindowId) {
+        controller.beginWindowHeaderDrag(sourceWindowId: sourceWindowId);
+      },
+      onWindowHeaderDragFinished: _handleWindowHeaderDragFinished,
+      windowHeaderDockTargetingMode: windowHeaderDockTargetingMode,
     );
-    _rootWindowController = rootWindowController;
   }
 
   final DockController controller;
-  late final ExperimentalWindowController _rootWindowController;
+  final ExperimentalWindowController? _rootWindowController;
   late final NativeDockDragCoordinator nativeDockDragCoordinator;
   final Map<int, ExperimentalWindowController> _detachedWindowHandles =
       <int, ExperimentalWindowController>{};
@@ -42,19 +48,57 @@ final class DockRuntimeCoordinator {
       return;
     }
 
+    _syncWindowTitles();
+
+    final ExperimentalWindowController? rootWindowController =
+        _rootWindowController;
+    if (rootWindowController == null) {
+      _registerRootWindowAfterFrame();
+      return;
+    }
+
     _registerWindowAfterFrame(
       windowId: DockController.mainWindowId,
-      controller: _rootWindowController,
+      controller: rootWindowController,
       onRegistered: () {
         _rootWindowRegistered = true;
       },
     );
   }
 
+  void _registerRootWindowAfterFrame({int attempt = 0}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final int? nativeWindowHandle =
+          nativeDockDragCoordinator.mainWindowHandle;
+      final bool registered =
+          nativeWindowHandle != null &&
+          nativeDockDragCoordinator.registerWindowHandle(
+            windowId: DockController.mainWindowId,
+            nativeWindowHandle: nativeWindowHandle,
+          );
+      if (registered) {
+        _rootWindowRegistered = true;
+        return;
+      }
+
+      if (attempt >= 2) {
+        pocLog(
+          'runtime registerWindow failed window=${DockController.mainWindowId} '
+          'after=${attempt + 1}',
+        );
+        return;
+      }
+
+      _registerRootWindowAfterFrame(attempt: attempt + 1);
+    });
+  }
+
   void syncDetachedNativeWindows({
     required GlobalKey<NavigatorState> navigatorKey,
     required DetachedWindowRootBuilder buildDetachedWindowRoot,
   }) {
+    _syncWindowTitles();
+
     final BuildContext? context = navigatorKey.currentContext;
     if (context == null) {
       return;
@@ -114,7 +158,7 @@ final class DockRuntimeCoordinator {
     late final ExperimentalWindowEntryHandle entry;
     final ExperimentalWindowController windowController =
         ExperimentalWindowController(
-          title: 'Dock window $windowId',
+          title: controller.windowTitle(windowId),
           preferredSize: const Size(560, 420),
           onDestroyed: () {
             pocLog('runtime detachedWindowDestroyed window=$windowId');
@@ -199,12 +243,45 @@ final class DockRuntimeCoordinator {
     });
   }
 
+  void _syncWindowTitles() {
+    final ExperimentalWindowController? rootWindowController =
+        _rootWindowController;
+    final String mainWindowTitle = controller.windowTitle(
+      DockController.mainWindowId,
+    );
+    if (rootWindowController != null) {
+      rootWindowController.setTitle(mainWindowTitle);
+    } else {
+      nativeDockDragCoordinator.setMainWindowTitle(mainWindowTitle);
+    }
+
+    for (final MapEntry<int, ExperimentalWindowController> entry
+        in _detachedWindowHandles.entries) {
+      entry.value.setTitle(controller.windowTitle(entry.key));
+    }
+  }
+
   void _handleNativeDragFinished() {
     if (!controller.hasActiveDrag) {
       return;
     }
 
     controller.endDockedTabDrag();
+    _syncRequest?.call();
+  }
+
+  void _handleWindowHeaderDragFinished({
+    required int sourceWindowId,
+    required int? targetWindowId,
+  }) {
+    final bool docked = controller.endWindowHeaderDrag(
+      sourceWindowId: sourceWindowId,
+      targetWindowId: targetWindowId,
+    );
+    if (!docked) {
+      return;
+    }
+
     _syncRequest?.call();
   }
 }
@@ -273,6 +350,7 @@ final class DockTabPointerCoordinator {
       startGlobalPosition: pendingTabPan.startGlobalPosition,
       anchor: pendingTabPan.anchor,
     );
+    controller.updateHoveredDockTarget(windowId: null);
     controller.updateDockedTabDrag(
       globalPosition: event.position,
       windowId: window.id,
@@ -284,7 +362,6 @@ final class DockTabPointerCoordinator {
       tabId: tab.id,
     );
     if (started) {
-      controller.updateHoveredDockTarget(windowId: null);
       return;
     }
 

@@ -45,6 +45,8 @@ class DockController extends ChangeNotifier {
   _DockDragSession? _activeDrag;
   int _nextWindowId = 1;
   int? _hoveredDockTargetWindowId;
+  int? _activeWindowHeaderDragSourceWindowId;
+  int? _activeWindowHeaderDragTargetWindowId;
 
   List<DockWindowModel> get windows =>
       List<DockWindowModel>.unmodifiable(_windows);
@@ -62,8 +64,16 @@ class DockController extends ChangeNotifier {
 
   Offset? get activeDragAnchor => _activeDrag?.anchor;
 
+  bool get hasActiveWindowHeaderDrag =>
+      _activeWindowHeaderDragSourceWindowId != null;
+
   String debugDragState() {
     final _DockDragSession? session = _activeDrag;
+    if (session == null && _activeWindowHeaderDragSourceWindowId != null) {
+      return 'window-move src=$_activeWindowHeaderDragSourceWindowId '
+          'dock=${_activeWindowHeaderDragTargetWindowId?.toString() ?? 'none'}';
+    }
+
     if (session == null) {
       return 'idle';
     }
@@ -106,6 +116,41 @@ class DockController extends ChangeNotifier {
     return window.tabs.first;
   }
 
+  String windowTitle(int windowId) {
+    final DockWindowModel? window = windowById(windowId);
+    if (window == null) {
+      return 'KDDockWidgets Flutter POC';
+    }
+
+    final DockTabModel? selectedTab = selectedTabForWindow(windowId);
+    if (window.isMainWindow) {
+      if (selectedTab == null) {
+        return 'Main Window';
+      }
+
+      return 'Main Window - ${selectedTab.title}';
+    }
+
+    if (selectedTab != null) {
+      return selectedTab.title;
+    }
+
+    return 'Window $windowId';
+  }
+
+  String windowRoleLabel(int windowId) {
+    final DockWindowModel? window = windowById(windowId);
+    if (window == null) {
+      return 'Window';
+    }
+
+    if (window.isMainWindow) {
+      return 'Main Window';
+    }
+
+    return 'Window $windowId';
+  }
+
   DragProxyModel? get activeDragProxy {
     final _DockDragSession? session = _activeDrag;
     if (session == null) {
@@ -139,7 +184,7 @@ class DockController extends ChangeNotifier {
   bool isDockTargetActive({required int windowId}) {
     final _DockDragSession? session = _activeDrag;
     if (session == null) {
-      return false;
+      return _activeWindowHeaderDragTargetWindowId == windowId;
     }
 
     final bool movedFarEnough =
@@ -166,6 +211,17 @@ class DockController extends ChangeNotifier {
     _hoveredDockTargetWindowId = windowId;
     final _DockDragSession? session = _activeDrag;
     if (session == null) {
+      if (_activeWindowHeaderDragSourceWindowId == null) {
+        return;
+      }
+
+      _activeWindowHeaderDragTargetWindowId = windowId;
+      pocLog(
+        'controller windowMove hoverTarget '
+        'source=$_activeWindowHeaderDragSourceWindowId '
+        'window=${windowId?.toString() ?? 'none'}',
+      );
+      notifyListeners();
       return;
     }
 
@@ -217,6 +273,23 @@ class DockController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void beginWindowHeaderDrag({required int sourceWindowId}) {
+    final DockWindowModel? window = windowById(sourceWindowId);
+    if (window == null || window.isMainWindow) {
+      return;
+    }
+
+    if (_activeWindowHeaderDragSourceWindowId == sourceWindowId) {
+      return;
+    }
+
+    _hoveredDockTargetWindowId = null;
+    _activeWindowHeaderDragSourceWindowId = sourceWindowId;
+    _activeWindowHeaderDragTargetWindowId = null;
+    pocLog('controller beginWindowMove window=$sourceWindowId');
+    notifyListeners();
+  }
+
   void updateDockedTabDrag({
     required Offset globalPosition,
     required int windowId,
@@ -227,7 +300,26 @@ class DockController extends ChangeNotifier {
     }
 
     int? resolvedDockTargetWindowId = _hoveredDockTargetWindowId;
-    final int? detachedWindowId = session.detachedWindowId;
+    int? detachedWindowId = session.detachedWindowId;
+    final bool movedFarEnough =
+        (globalPosition - session.startGlobalPosition).distance >=
+        detachThreshold;
+
+    if (movedFarEnough &&
+        resolvedDockTargetWindowId == null &&
+        detachedWindowId == null) {
+      detachedWindowId = _moveTabToNewWindow(
+        sourceWindowId: session.sourceWindowId,
+        tabId: session.tabId,
+      );
+      if (detachedWindowId != null) {
+        pocLog(
+          'controller dragRoute detachNow '
+          'source=${session.sourceWindowId} detached=$detachedWindowId '
+          'tab=${session.tabId}',
+        );
+      }
+    }
 
     final int nextWindowId =
         resolvedDockTargetWindowId ?? detachedWindowId ?? windowId;
@@ -336,6 +428,37 @@ class DockController extends ChangeNotifier {
     return true;
   }
 
+  bool endWindowHeaderDrag({
+    required int sourceWindowId,
+    required int? targetWindowId,
+  }) {
+    final bool stateChanged =
+        _activeWindowHeaderDragSourceWindowId != null ||
+        _activeWindowHeaderDragTargetWindowId != null ||
+        _hoveredDockTargetWindowId != null;
+    _activeWindowHeaderDragSourceWindowId = null;
+    _activeWindowHeaderDragTargetWindowId = null;
+    _hoveredDockTargetWindowId = null;
+
+    final bool docked = targetWindowId != null
+        ? _dockDetachedWindowIntoWindow(
+            sourceWindowId: sourceWindowId,
+            targetWindowId: targetWindowId,
+          )
+        : false;
+
+    pocLog(
+      'controller endWindowMove source=$sourceWindowId '
+      'target=${targetWindowId?.toString() ?? 'none'} docked=$docked',
+    );
+
+    if (stateChanged || docked) {
+      notifyListeners();
+    }
+
+    return docked;
+  }
+
   void cancelDockedTabDrag() {
     final _DockDragSession? session = _activeDrag;
     if (session == null) {
@@ -386,6 +509,20 @@ class DockController extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool dockDetachedWindowIntoWindow({
+    required int sourceWindowId,
+    required int targetWindowId,
+  }) {
+    final bool docked = _dockDetachedWindowIntoWindow(
+      sourceWindowId: sourceWindowId,
+      targetWindowId: targetWindowId,
+    );
+    if (docked) {
+      notifyListeners();
+    }
+    return docked;
+  }
+
   DockTabModel? _tabById({required int windowId, required int tabId}) {
     final DockWindowModel? window = windowById(windowId);
     if (window == null) {
@@ -432,6 +569,37 @@ class DockController extends ChangeNotifier {
       'targetTabs=${targetWindow.tabs.map((DockTabModel tab) => tab.id).toList()}',
     );
     _removeWindowIfEmpty(sourceWindowId);
+  }
+
+  bool _dockDetachedWindowIntoWindow({
+    required int sourceWindowId,
+    required int targetWindowId,
+  }) {
+    if (sourceWindowId == targetWindowId || sourceWindowId == mainWindowId) {
+      return false;
+    }
+
+    final DockWindowModel? sourceWindow = windowById(sourceWindowId);
+    final DockWindowModel? targetWindow = windowById(targetWindowId);
+    if (sourceWindow == null || targetWindow == null) {
+      return false;
+    }
+
+    final List<DockTabModel> sourceTabs = List<DockTabModel>.from(
+      sourceWindow.tabs,
+    );
+    if (sourceTabs.isEmpty) {
+      return false;
+    }
+
+    targetWindow.tabs.addAll(sourceTabs);
+    targetWindow.selectedTabId =
+        sourceWindow.selectedTabId ?? sourceTabs.last.id;
+    _windows.remove(sourceWindow);
+    if (_hoveredDockTargetWindowId == sourceWindowId) {
+      _hoveredDockTargetWindowId = null;
+    }
+    return true;
   }
 
   int? _moveTabToNewWindow({required int sourceWindowId, required int tabId}) {
