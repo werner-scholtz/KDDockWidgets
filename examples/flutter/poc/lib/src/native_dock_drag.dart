@@ -8,6 +8,7 @@ import 'dock_controller.dart';
 import 'experimental_window_api.dart';
 import 'native_dock_drag/native_dock_drag_backend.dart';
 import 'native_dock_drag/native_dock_drag_linux.dart';
+import 'native_dock_drag/native_dock_drag_macos.dart';
 import 'native_dock_drag/native_dock_drag_windows.dart';
 
 typedef NativeDockHoverChanged = void Function(int windowId);
@@ -267,6 +268,10 @@ NativeDockDragPlatformBackend _createNativeDockDragPlatformBackend() {
 
   if (Platform.isWindows) {
     return WindowsNativeDockDragPlatformBackend();
+  }
+
+  if (Platform.isMacOS) {
+    return MacOSNativeDockDragPlatformBackend();
   }
 
   return UnsupportedNativeDockDragPlatformBackend();

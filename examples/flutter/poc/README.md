@@ -2,9 +2,16 @@
 
 Flutter POC for KDDockWidgets.
 
+See also [MACOS_FINDINGS.md](MACOS_FINDINGS.md) for the current macOS runner,
+bootstrap, and native drag/docking findings.
+
 See also [WAYLAND_FINDINGS.md](WAYLAND_FINDINGS.md) for the result of the
 Wayland live tear-off investigation that was intentionally removed from the
 runtime code after the POC reached the public GTK/Flutter API boundary.
+
+See also [WINDOWS_FINDINGS.md](WINDOWS_FINDINGS.md) for the current Windows
+native whole-window docking path and [X11_FINDINGS.md](X11_FINDINGS.md) for the
+current upstream X11 blocker findings.
 
 This example exercises the current native multi-window proxy-drag architecture
 around Flutter's experimental `WindowRegistry` / `RegularWindowController` API.
@@ -41,7 +48,7 @@ cross-window drop mechanism.
 
 - Flutter `main` branch
 - `fvm`
-- Linux or Windows desktop target
+- Linux, Windows, or macOS desktop target
 - Flutter windowing enabled via `fvm flutter config --enable-windowing`
 
 This example uses `package:flutter/src/widgets/_window.dart`, so it is pinned to
@@ -57,6 +64,9 @@ fvm flutter run -d linux
 
 # or on Windows
 fvm flutter run -d windows
+
+# or on macOS
+fvm flutter run -d macos
 ```
 
 ## Validate

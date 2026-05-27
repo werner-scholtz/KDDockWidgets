@@ -1,0 +1,19 @@
+// ignore_for_file: implementation_imports
+// ignore_for_file: invalid_use_of_internal_member
+
+library;
+
+import 'package:flutter/src/widgets/_window.dart';
+import 'package:flutter/src/widgets/_window_macos.dart';
+
+import 'experimental_window_api_backend.dart';
+
+final class MacOSExperimentalWindowPlatformBackend
+    implements ExperimentalWindowPlatformBackend {
+  @override
+  int nativeWindowHandleAddress(RegularWindowController controller) {
+    final WindowControllerMacOS macOSController =
+        controller as WindowControllerMacOS;
+    return macOSController.windowHandle.address;
+  }
+}

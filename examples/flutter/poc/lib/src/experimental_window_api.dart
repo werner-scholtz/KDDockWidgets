@@ -10,6 +10,7 @@ import 'package:flutter/src/widgets/_window.dart';
 
 import 'experimental_window_api/experimental_window_api_backend.dart';
 import 'experimental_window_api/experimental_window_api_linux.dart';
+import 'experimental_window_api/experimental_window_api_macos.dart';
 import 'experimental_window_api/experimental_window_api_windows.dart';
 
 // Centralizes the experimental Flutter multi-window dependency used by this
@@ -121,8 +122,12 @@ ExperimentalWindowPlatformBackend _createWindowPlatformBackend() {
     return WindowsExperimentalWindowPlatformBackend();
   }
 
+  if (Platform.isMacOS) {
+    return MacOSExperimentalWindowPlatformBackend();
+  }
+
   throw UnsupportedError(
-    'Experimental windowing handles are only implemented for Linux and '
-    'Windows in this POC.',
+    'Experimental windowing handles are only implemented for Linux, '
+    'Windows, and macOS in this POC.',
   );
 }
