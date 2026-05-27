@@ -1,8 +1,10 @@
+// ignore_for_file: public_member_api_docs This is a POC, so we can be a bit more lax on documentation for now.
+
 import 'package:flutter/material.dart';
 
-import 'native_dock_drag.dart';
 import 'dock_controller.dart';
 import 'experimental_window_api.dart';
+import 'native_dock_drag.dart';
 
 typedef DetachedWindowRootBuilder = Widget Function(int windowId);
 
@@ -10,8 +12,7 @@ final class DockRuntimeCoordinator {
   DockRuntimeCoordinator({
     required this.controller,
     ExperimentalWindowController? rootWindowController,
-    NativeWindowHeaderDockTargetingMode windowHeaderDockTargetingMode =
-        NativeWindowHeaderDockTargetingMode.cursor,
+    NativeWindowHeaderDockTargetingMode windowHeaderDockTargetingMode = NativeWindowHeaderDockTargetingMode.cursor,
   }) : _rootWindowController = rootWindowController {
     nativeDockDragCoordinator = NativeDockDragCoordinator(
       onHoveredWindowChanged: (int windowId) {
@@ -32,16 +33,11 @@ final class DockRuntimeCoordinator {
   final DockController controller;
   final ExperimentalWindowController? _rootWindowController;
   late final NativeDockDragCoordinator nativeDockDragCoordinator;
-  final Map<int, ExperimentalWindowController> _detachedWindowHandles =
-      <int, ExperimentalWindowController>{};
+  final Map<int, ExperimentalWindowController> _detachedWindowHandles = <int, ExperimentalWindowController>{};
   final Set<int> _closingWindowIds = <int>{};
   bool _rootWindowRegistered = false;
 
-  VoidCallback? _syncRequest;
-
-  void setSyncRequestHandler(VoidCallback handler) {
-    _syncRequest = handler;
-  }
+  VoidCallback? syncRequestHandler;
 
   void registerRootWindow() {
     if (_rootWindowRegistered) {
@@ -50,8 +46,7 @@ final class DockRuntimeCoordinator {
 
     _syncWindowTitles();
 
-    final ExperimentalWindowController? rootWindowController =
-        _rootWindowController;
+    final rootWindowController = _rootWindowController;
     if (rootWindowController == null) {
       _registerRootWindowAfterFrame();
       return;
@@ -68,9 +63,8 @@ final class DockRuntimeCoordinator {
 
   void _registerRootWindowAfterFrame({int attempt = 0}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final int? nativeWindowHandle =
-          nativeDockDragCoordinator.mainWindowHandle;
-      final bool registered =
+      final nativeWindowHandle = nativeDockDragCoordinator.mainWindowHandle;
+      final registered =
           nativeWindowHandle != null &&
           nativeDockDragCoordinator.registerWindowHandle(
             windowId: DockController.mainWindowId,
@@ -99,22 +93,18 @@ final class DockRuntimeCoordinator {
   }) {
     _syncWindowTitles();
 
-    final BuildContext? context = navigatorKey.currentContext;
+    final context = navigatorKey.currentContext;
     if (context == null) {
       return;
     }
 
-    final ExperimentalWindowRegistryHandle registry =
-        experimentalWindowRegistryOf(context);
-    final int? deferredDetachedWindowId =
-        controller.hasActiveDrag &&
-            !nativeDockDragCoordinator.supportsLiveDetachedWindowDuringDrag
+    final registry = experimentalWindowRegistryOf(context);
+    final deferredDetachedWindowId =
+        controller.hasActiveDrag && !nativeDockDragCoordinator.supportsLiveDetachedWindowDuringDrag
         ? controller.activeDetachedWindowId
         : null;
-    final Set<int> expectedWindowIds = controller.detachedWindows
-        .where(
-          (DockWindowModel window) => window.id != deferredDetachedWindowId,
-        )
+    final expectedWindowIds = controller.detachedWindows
+        .where((DockWindowModel window) => window.id != deferredDetachedWindowId)
         .map((DockWindowModel window) => window.id)
         .toSet();
 
@@ -125,7 +115,7 @@ final class DockRuntimeCoordinator {
       'dragState=${controller.debugDragState()}',
     );
 
-    for (final DockWindowModel window in controller.detachedWindows) {
+    for (final window in controller.detachedWindows) {
       if (window.id == deferredDetachedWindowId) {
         continue;
       }
@@ -134,14 +124,10 @@ final class DockRuntimeCoordinator {
         continue;
       }
 
-      _openDetachedWindow(
-        registry: registry,
-        windowId: window.id,
-        buildDetachedWindowRoot: buildDetachedWindowRoot,
-      );
+      _openDetachedWindow(registry: registry, windowId: window.id, buildDetachedWindowRoot: buildDetachedWindowRoot);
     }
 
-    for (final int windowId in _detachedWindowHandles.keys.toList()) {
+    for (final windowId in _detachedWindowHandles.keys.toList()) {
       if (expectedWindowIds.contains(windowId)) {
         continue;
       }
@@ -153,10 +139,8 @@ final class DockRuntimeCoordinator {
   }
 
   void dispose() {
-    nativeDockDragCoordinator.unregisterWindow(
-      windowId: DockController.mainWindowId,
-    );
-    for (final int windowId in _detachedWindowHandles.keys.toList()) {
+    nativeDockDragCoordinator.unregisterWindow(windowId: DockController.mainWindowId);
+    for (final windowId in _detachedWindowHandles.keys.toList()) {
       nativeDockDragCoordinator.unregisterWindow(windowId: windowId);
     }
     nativeDockDragCoordinator.dispose();
@@ -169,33 +153,32 @@ final class DockRuntimeCoordinator {
   }) {
     pocLog('runtime openDetachedWindow window=$windowId');
     late final ExperimentalWindowEntryHandle entry;
-    final ExperimentalWindowController windowController =
-        ExperimentalWindowController(
-          title: controller.windowTitle(windowId),
-          preferredSize: const Size(560, 420),
-          onDestroyed: () {
-            pocLog('runtime detachedWindowDestroyed window=$windowId');
-            registry.unregister(entry);
-            _detachedWindowHandles.remove(windowId);
-            nativeDockDragCoordinator.unregisterWindow(windowId: windowId);
+    final windowController = ExperimentalWindowController(
+      title: controller.windowTitle(windowId),
+      preferredSize: const Size(560, 420),
+      onDestroyed: () {
+        pocLog('runtime detachedWindowDestroyed window=$windowId');
+        registry.unregister(entry);
+        _detachedWindowHandles.remove(windowId);
+        nativeDockDragCoordinator.unregisterWindow(windowId: windowId);
 
-            if (_closingWindowIds.remove(windowId)) {
-              pocLog(
-                'runtime detachedWindowDestroyed window=$windowId '
-                'reason=sync-close',
-              );
-              return;
-            }
+        if (_closingWindowIds.remove(windowId)) {
+          pocLog(
+            'runtime detachedWindowDestroyed window=$windowId '
+            'reason=sync-close',
+          );
+          return;
+        }
 
-            if (controller.windowById(windowId) != null) {
-              pocLog(
-                'runtime detachedWindowDestroyed window=$windowId '
-                'reason=user-close',
-              );
-              controller.closeDetachedWindow(windowId);
-            }
-          },
-        );
+        if (controller.windowById(windowId) != null) {
+          pocLog(
+            'runtime detachedWindowDestroyed window=$windowId '
+            'reason=user-close',
+          );
+          controller.closeDetachedWindow(windowId);
+        }
+      },
+    );
 
     entry = registry.register(
       controller: windowController,
@@ -208,10 +191,7 @@ final class DockRuntimeCoordinator {
       controller: windowController,
       onRegistered: () {
         if (controller.activeDetachedWindowId == windowId) {
-          nativeDockDragCoordinator.attachDragWindow(
-            windowId: windowId,
-            dragAnchor: controller.activeDragAnchor,
-          );
+          nativeDockDragCoordinator.attachDragWindow(windowId: windowId, dragAnchor: controller.activeDragAnchor);
         }
       },
     );
@@ -224,26 +204,20 @@ final class DockRuntimeCoordinator {
     int attempt = 0,
   }) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final bool stillExpected =
-          windowId == DockController.mainWindowId ||
-          identical(_detachedWindowHandles[windowId], controller);
+      final stillExpected =
+          windowId == DockController.mainWindowId || identical(_detachedWindowHandles[windowId], controller);
       if (!stillExpected) {
         return;
       }
 
-      final bool registered = nativeDockDragCoordinator.registerWindow(
-        windowId: windowId,
-        controller: controller,
-      );
+      final registered = nativeDockDragCoordinator.registerWindow(windowId: windowId, controller: controller);
       if (registered) {
         onRegistered();
         return;
       }
 
       if (attempt >= 2) {
-        pocLog(
-          'runtime registerWindow failed window=$windowId after=${attempt + 1}',
-        );
+        pocLog('runtime registerWindow failed window=$windowId after=${attempt + 1}');
         return;
       }
 
@@ -257,19 +231,15 @@ final class DockRuntimeCoordinator {
   }
 
   void _syncWindowTitles() {
-    final ExperimentalWindowController? rootWindowController =
-        _rootWindowController;
-    final String mainWindowTitle = controller.windowTitle(
-      DockController.mainWindowId,
-    );
+    final rootWindowController = _rootWindowController;
+    final mainWindowTitle = controller.windowTitle(DockController.mainWindowId);
     if (rootWindowController != null) {
       rootWindowController.setTitle(mainWindowTitle);
     } else {
       nativeDockDragCoordinator.setMainWindowTitle(mainWindowTitle);
     }
 
-    for (final MapEntry<int, ExperimentalWindowController> entry
-        in _detachedWindowHandles.entries) {
+    for (final entry in _detachedWindowHandles.entries) {
       entry.value.setTitle(controller.windowTitle(entry.key));
     }
   }
@@ -280,22 +250,16 @@ final class DockRuntimeCoordinator {
     }
 
     controller.endDockedTabDrag();
-    _syncRequest?.call();
+    syncRequestHandler?.call();
   }
 
-  void _handleWindowHeaderDragFinished({
-    required int sourceWindowId,
-    required int? targetWindowId,
-  }) {
-    final bool docked = controller.endWindowHeaderDrag(
-      sourceWindowId: sourceWindowId,
-      targetWindowId: targetWindowId,
-    );
+  void _handleWindowHeaderDragFinished({required int sourceWindowId, required int? targetWindowId}) {
+    final docked = controller.endWindowHeaderDrag(sourceWindowId: sourceWindowId, targetWindowId: targetWindowId);
     if (!docked) {
       return;
     }
 
-    _syncRequest?.call();
+    syncRequestHandler?.call();
   }
 }
 
@@ -323,10 +287,7 @@ final class DockTabPointerCoordinator {
       tabId: tab.id,
       startGlobalPosition: event.position,
       anchor: Offset(
-        event.localPosition.dx.clamp(
-          16,
-          DockController.dragProxySize.width - 16,
-        ),
+        event.localPosition.dx.clamp(16, DockController.dragProxySize.width - 16),
         DockController.dragProxySize.height / 2,
       ),
     );
@@ -341,7 +302,7 @@ final class DockTabPointerCoordinator {
       return;
     }
 
-    final _PendingTabPan? pendingTabPan = _pendingTabPan;
+    final pendingTabPan = _pendingTabPan;
     if (pendingTabPan == null ||
         pendingTabPan.pointer != event.pointer ||
         pendingTabPan.windowId != window.id ||
@@ -349,31 +310,25 @@ final class DockTabPointerCoordinator {
       return;
     }
 
-    final bool movedFarEnough =
-        (event.position - pendingTabPan.startGlobalPosition).distance >=
-        DockController.detachThreshold;
+    final movedFarEnough =
+        (event.position - pendingTabPan.startGlobalPosition).distance >= DockController.detachThreshold;
     if (!movedFarEnough) {
       return;
     }
 
     pocLog('page[$pageWindowId] startDetachDrag tab=${tab.id}');
-    controller.beginDockedTabDrag(
-      windowId: window.id,
-      tabId: tab.id,
-      startGlobalPosition: pendingTabPan.startGlobalPosition,
-      anchor: pendingTabPan.anchor,
-    );
-    controller.updateHoveredDockTarget(windowId: null);
-    controller.updateDockedTabDrag(
-      globalPosition: event.position,
-      windowId: window.id,
-    );
+    controller
+      ..beginDockedTabDrag(
+        windowId: window.id,
+        tabId: tab.id,
+        startGlobalPosition: pendingTabPan.startGlobalPosition,
+        anchor: pendingTabPan.anchor,
+      )
+      ..updateHoveredDockTarget(windowId: null)
+      ..updateDockedTabDrag(globalPosition: event.position, windowId: window.id);
     _pendingTabPan = null;
 
-    final bool started = nativeDockDragCoordinator.startDrag(
-      sourceWindowId: window.id,
-      tabId: tab.id,
-    );
+    final started = nativeDockDragCoordinator.startDrag(sourceWindowId: window.id, tabId: tab.id);
     if (started) {
       return;
     }
@@ -381,25 +336,20 @@ final class DockTabPointerCoordinator {
     controller.cancelDockedTabDrag();
   }
 
-  void handlePointerEnd({
-    required int windowId,
-    required int tabId,
-    required int pointer,
-  }) {
+  void handlePointerEnd({required int windowId, required int tabId, required int pointer}) {
     pocLog(
       'page[$pageWindowId] pointerUp tab=$tabId '
       'state=${controller.debugDragState()}',
     );
 
-    final _PendingTabPan? pendingTabPan = _pendingTabPan;
-    final bool selectOnly =
+    final pendingTabPan = _pendingTabPan;
+    final selectOnly =
         pendingTabPan != null &&
         pendingTabPan.pointer == pointer &&
         pendingTabPan.windowId == windowId &&
         pendingTabPan.tabId == tabId;
     _clearPendingTabPan(windowId: windowId, tabId: tabId, pointer: pointer);
-    if (nativeDockDragCoordinator.isNativeDragActive ||
-        !controller.hasActiveDrag) {
+    if (nativeDockDragCoordinator.isNativeDragActive || !controller.hasActiveDrag) {
       if (selectOnly && !nativeDockDragCoordinator.isNativeDragActive) {
         controller.selectDockedTab(windowId: windowId, tabId: tabId);
       }
@@ -413,12 +363,8 @@ final class DockTabPointerCoordinator {
     _pendingTabPan = null;
   }
 
-  void _clearPendingTabPan({
-    required int windowId,
-    required int tabId,
-    int? pointer,
-  }) {
-    final _PendingTabPan? pendingTabPan = _pendingTabPan;
+  void _clearPendingTabPan({required int windowId, required int tabId, int? pointer}) {
+    final pendingTabPan = _pendingTabPan;
     if (pendingTabPan == null ||
         (pointer != null && pendingTabPan.pointer != pointer) ||
         pendingTabPan.windowId != windowId ||

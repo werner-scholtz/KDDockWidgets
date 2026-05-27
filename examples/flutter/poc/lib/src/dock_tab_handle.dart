@@ -1,3 +1,5 @@
+// ignore_for_file: public_member_api_docs This is a POC, so we can be a bit more lax on documentation for now.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,13 +8,13 @@ import 'dock_runtime.dart';
 
 class DockTabHandle extends StatefulWidget {
   const DockTabHandle({
-    super.key,
     required this.controller,
     required this.tabPointerCoordinator,
     required this.window,
     required this.tab,
     required this.isSelected,
     required this.isBeingDragged,
+    super.key,
   });
 
   final DockController controller;
@@ -37,16 +39,13 @@ class _DockTabHandleState extends State<DockTabHandle> {
   }
 
   void _selectTab() {
-    widget.controller.selectDockedTab(
-      windowId: widget.window.id,
-      tabId: widget.tab.id,
-    );
+    widget.controller.selectDockedTab(windowId: widget.window.id, tabId: widget.tab.id);
   }
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final Color indicatorColor = widget.isBeingDragged
+    final theme = Theme.of(context);
+    final indicatorColor = widget.isBeingDragged
         ? widget.tab.accentColor.withValues(alpha: 0.5)
         : widget.isSelected
         ? widget.tab.accentColor
@@ -58,8 +57,7 @@ class _DockTabHandleState extends State<DockTabHandle> {
       button: true,
       selected: widget.isSelected,
       label: '${widget.tab.title} tab',
-      hint:
-          'Press Enter or Space to select. Use left and right arrows to move focus between tabs.',
+      hint: 'Press Enter or Space to select. Use left and right arrows to move focus between tabs.',
       onTap: _selectTab,
       child: FocusableActionDetector(
         focusNode: _focusNode,
@@ -92,18 +90,10 @@ class _DockTabHandleState extends State<DockTabHandle> {
           behavior: HitTestBehavior.opaque,
           onPointerDown: (PointerDownEvent event) {
             _focusNode.requestFocus();
-            widget.tabPointerCoordinator.handlePointerDown(
-              window: widget.window,
-              tab: widget.tab,
-              event: event,
-            );
+            widget.tabPointerCoordinator.handlePointerDown(window: widget.window, tab: widget.tab, event: event);
           },
           onPointerMove: (PointerMoveEvent event) {
-            widget.tabPointerCoordinator.handlePointerMove(
-              window: widget.window,
-              tab: widget.tab,
-              event: event,
-            );
+            widget.tabPointerCoordinator.handlePointerMove(window: widget.window, tab: widget.tab, event: event);
           },
           onPointerUp: (PointerUpEvent event) {
             widget.tabPointerCoordinator.handlePointerEnd(
@@ -129,19 +119,13 @@ class _DockTabHandleState extends State<DockTabHandle> {
                   ? Colors.black.withValues(alpha: 0.04)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(6),
-              border: Border(
-                bottom: BorderSide(color: indicatorColor, width: 3),
-              ),
+              border: Border(bottom: BorderSide(color: indicatorColor, width: 3)),
             ),
             child: Text(
               widget.tab.title,
               style: TextStyle(
-                fontWeight: widget.isSelected
-                    ? FontWeight.w600
-                    : FontWeight.w400,
-                color: widget.isSelected
-                    ? const Color(0xFF222222)
-                    : const Color(0xFF666666),
+                fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: widget.isSelected ? const Color(0xFF222222) : const Color(0xFF666666),
               ),
             ),
           ),

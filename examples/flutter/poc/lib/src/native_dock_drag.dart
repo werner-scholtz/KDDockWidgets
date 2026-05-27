@@ -1,3 +1,5 @@
+// ignore_for_file: public_member_api_docs This is a POC, so we can be a bit more lax on documentation for now.
+
 import 'dart:async';
 import 'dart:io';
 
@@ -15,8 +17,7 @@ typedef NativeDockHoverChanged = void Function(int windowId);
 typedef NativeDockHoverCleared = void Function(int windowId);
 typedef NativeDockDragFinished = void Function();
 typedef NativeWindowHeaderDragStarted = void Function(int sourceWindowId);
-typedef NativeWindowHeaderDragFinished =
-    void Function({required int sourceWindowId, required int? targetWindowId});
+typedef NativeWindowHeaderDragFinished = void Function({required int sourceWindowId, required int? targetWindowId});
 
 enum NativeWindowHeaderDockTargetingMode {
   overlap,
@@ -30,8 +31,7 @@ enum NativeWindowHeaderDockTargetingMode {
   };
 }
 
-final NativeDockDragPlatformBackend _nativeDockDragPlatformBackend =
-    _createNativeDockDragPlatformBackend();
+final NativeDockDragPlatformBackend _nativeDockDragPlatformBackend = _createNativeDockDragPlatformBackend();
 
 final class NativeDockDragCoordinator extends ChangeNotifier {
   NativeDockDragCoordinator({
@@ -40,8 +40,7 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
     required NativeDockDragFinished onNativeDragFinished,
     required NativeWindowHeaderDragStarted onWindowHeaderDragStarted,
     required NativeWindowHeaderDragFinished onWindowHeaderDragFinished,
-    NativeWindowHeaderDockTargetingMode windowHeaderDockTargetingMode =
-        NativeWindowHeaderDockTargetingMode.cursor,
+    NativeWindowHeaderDockTargetingMode windowHeaderDockTargetingMode = NativeWindowHeaderDockTargetingMode.cursor,
   }) : _onHoveredWindowChanged = onHoveredWindowChanged,
        _onHoveredWindowLeft = onHoveredWindowLeft,
        _onNativeDragFinished = onNativeDragFinished,
@@ -63,25 +62,12 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
   _PendingAttachedDragWindow? _pendingAttachedDragWindow;
 
   bool get isNativeDragActive => _nativeDragActive;
+  bool get supportsWindowHeaderDockGesture => _nativeDockDragPlatformBackend.supportsWindowHeaderDockGesture;
+  bool get supportsLiveDetachedWindowDuringDrag => _nativeDockDragPlatformBackend.supportsLiveDetachedWindowDuringDrag;
+  int? get mainWindowHandle => _nativeDockDragPlatformBackend.mainWindowHandle;
 
-  bool get supportsWindowHeaderDockGesture {
-    return _nativeDockDragPlatformBackend.supportsWindowHeaderDockGesture;
-  }
-
-  bool get supportsLiveDetachedWindowDuringDrag {
-    return _nativeDockDragPlatformBackend.supportsLiveDetachedWindowDuringDrag;
-  }
-
-  int? get mainWindowHandle {
-    return _nativeDockDragPlatformBackend.mainWindowHandle;
-  }
-
-  void setWindowHeaderDockTargetingMode(
-    NativeWindowHeaderDockTargetingMode mode,
-  ) {
-    _nativeDockDragPlatformBackend.setWindowHeaderDockTargetingMode(
-      mode.nativeValue,
-    );
+  void setWindowHeaderDockTargetingMode(NativeWindowHeaderDockTargetingMode mode) {
+    _nativeDockDragPlatformBackend.setWindowHeaderDockTargetingMode(mode.nativeValue);
     pocLog('nativeDrag setWindowHeaderDockTargetingMode mode=$mode');
   }
 
@@ -91,31 +77,17 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
     }
 
     unawaited(
-      _channel
-          .invokeMethod<void>('setMainWindowTitle', <String, Object?>{
-            'title': title,
-          })
-          .catchError((Object error) {
-            pocLog('nativeDrag setMainWindowTitle error=$error');
-          }),
+      _channel.invokeMethod<void>('setMainWindowTitle', <String, Object?>{'title': title}).catchError((Object error) {
+        pocLog('nativeDrag setMainWindowTitle error=$error');
+      }),
     );
   }
 
-  bool registerWindow({
-    required int windowId,
-    required ExperimentalWindowController controller,
-  }) {
-    return registerWindowHandle(
-      windowId: windowId,
-      nativeWindowHandle: controller.nativeWindowHandleAddress,
-    );
-  }
+  bool registerWindow({required int windowId, required ExperimentalWindowController controller}) =>
+      registerWindowHandle(windowId: windowId, nativeWindowHandle: controller.nativeWindowHandleAddress);
 
-  bool registerWindowHandle({
-    required int windowId,
-    required int nativeWindowHandle,
-  }) {
-    final bool registered = _nativeDockDragPlatformBackend.registerWindowHandle(
+  bool registerWindowHandle({required int windowId, required int nativeWindowHandle}) {
+    final registered = _nativeDockDragPlatformBackend.registerWindowHandle(
       windowId: windowId,
       nativeWindowHandle: nativeWindowHandle,
     );
@@ -134,10 +106,7 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
     }
 
     if (!_nativeDragActive) {
-      _pendingAttachedDragWindow = _PendingAttachedDragWindow(
-        windowId: windowId,
-        dragAnchor: dragAnchor,
-      );
+      _pendingAttachedDragWindow = _PendingAttachedDragWindow(windowId: windowId, dragAnchor: dragAnchor);
       pocLog(
         'nativeDrag queueAttachDragWindow window=$windowId '
         'anchor=${dragAnchor.dx.round()},${dragAnchor.dy.round()}',
@@ -148,11 +117,8 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
     return _attachDragWindowNow(windowId: windowId, dragAnchor: dragAnchor);
   }
 
-  bool _attachDragWindowNow({
-    required int windowId,
-    required Offset dragAnchor,
-  }) {
-    final bool attached = _nativeDockDragPlatformBackend.attachDragWindow(
+  bool _attachDragWindowNow({required int windowId, required Offset dragAnchor}) {
+    final attached = _nativeDockDragPlatformBackend.attachDragWindow(
       windowId: windowId,
       anchorX: dragAnchor.dx.round(),
       anchorY: dragAnchor.dy.round(),
@@ -169,10 +135,7 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
       return false;
     }
 
-    final bool started = _nativeDockDragPlatformBackend.startDrag(
-      sourceWindowId: sourceWindowId,
-      tabId: tabId,
-    );
+    final started = _nativeDockDragPlatformBackend.startDrag(sourceWindowId: sourceWindowId, tabId: tabId);
     pocLog('nativeDrag start source=$sourceWindowId tab=$tabId ok=$started');
     if (!started) {
       _pendingAttachedDragWindow = null;
@@ -180,8 +143,7 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
     }
 
     _nativeDragActive = true;
-    final _PendingAttachedDragWindow? pendingAttachedDragWindow =
-        _pendingAttachedDragWindow;
+    final pendingAttachedDragWindow = _pendingAttachedDragWindow;
     if (pendingAttachedDragWindow != null) {
       _attachDragWindowNow(
         windowId: pendingAttachedDragWindow.windowId,
@@ -194,27 +156,24 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
   }
 
   Future<void> _handleMethodCall(MethodCall call) async {
-    final Map<Object?, Object?>? args =
-        call.arguments as Map<Object?, Object?>?;
+    final args = call.arguments as Map<Object?, Object?>?;
     switch (call.method) {
       case 'dragHover':
-        final int? windowId = (args?['windowId'] as num?)?.toInt();
+        final windowId = (args?['windowId'] as num?)?.toInt();
         if (windowId != null) {
           _onHoveredWindowChanged(windowId);
         }
-        break;
       case 'dragLeave':
-        final int? windowId = (args?['windowId'] as num?)?.toInt();
+        final windowId = (args?['windowId'] as num?)?.toInt();
         if (windowId != null) {
           _onHoveredWindowLeft(windowId);
         }
-        break;
       case 'dragEnded':
         if (!_nativeDragActive) {
           return;
         }
-        final bool accepted = args?['accepted'] == true;
-        final int? windowId = (args?['windowId'] as num?)?.toInt();
+        final accepted = args?['accepted'] == true;
+        final windowId = (args?['windowId'] as num?)?.toInt();
         if (accepted && windowId != null) {
           _onHoveredWindowChanged(windowId);
         }
@@ -222,24 +181,18 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
         _nativeDragActive = false;
         notifyListeners();
         _onNativeDragFinished();
-        break;
       case 'windowHeaderDragStarted':
-        final int? sourceWindowId = (args?['sourceWindowId'] as num?)?.toInt();
+        final sourceWindowId = (args?['sourceWindowId'] as num?)?.toInt();
         if (sourceWindowId != null) {
           _onWindowHeaderDragStarted(sourceWindowId);
         }
-        break;
       case 'windowHeaderDragEnded':
-        final int? sourceWindowId = (args?['sourceWindowId'] as num?)?.toInt();
+        final sourceWindowId = (args?['sourceWindowId'] as num?)?.toInt();
         if (sourceWindowId == null) {
           return;
         }
-        final int? targetWindowId = (args?['targetWindowId'] as num?)?.toInt();
-        _onWindowHeaderDragFinished(
-          sourceWindowId: sourceWindowId,
-          targetWindowId: targetWindowId,
-        );
-        break;
+        final targetWindowId = (args?['targetWindowId'] as num?)?.toInt();
+        _onWindowHeaderDragFinished(sourceWindowId: sourceWindowId, targetWindowId: targetWindowId);
     }
   }
 
@@ -252,10 +205,7 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
 }
 
 final class _PendingAttachedDragWindow {
-  const _PendingAttachedDragWindow({
-    required this.windowId,
-    required this.dragAnchor,
-  });
+  const _PendingAttachedDragWindow({required this.windowId, required this.dragAnchor});
 
   final int windowId;
   final Offset dragAnchor;

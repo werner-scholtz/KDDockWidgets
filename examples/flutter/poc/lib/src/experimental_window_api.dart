@@ -1,12 +1,9 @@
-// ignore_for_file: implementation_imports
-// ignore_for_file: invalid_use_of_internal_member
-
-library;
+// ignore_for_file: invalid_use_of_internal_member, public_member_api_docs, implementation_imports This is an experimental API wrapper, so we need to reach into Flutter's private APIs for now.
 
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter/src/widgets/_window.dart';
+import 'package:flutter/widgets.dart';
 
 import 'experimental_window_api/experimental_window_api_backend.dart';
 import 'experimental_window_api/experimental_window_api_linux.dart';
@@ -18,25 +15,19 @@ import 'experimental_window_api/experimental_window_api_windows.dart';
 // rest of the example should consume the wrappers below rather than private
 // Flutter libraries directly.
 
-final ExperimentalWindowPlatformBackend _windowPlatformBackend =
-    _createWindowPlatformBackend();
+final ExperimentalWindowPlatformBackend _windowPlatformBackend = _createWindowPlatformBackend();
 
 final class ExperimentalWindowController {
-  ExperimentalWindowController({
-    required Size preferredSize,
-    required String title,
-    VoidCallback? onDestroyed,
-  }) : _controller = RegularWindowController(
-         preferredSize: preferredSize,
-         title: title,
-         delegate: _CallbackWindowDelegate(onDestroyed: onDestroyed),
-       );
+  ExperimentalWindowController({required Size preferredSize, required String title, VoidCallback? onDestroyed})
+    : _controller = RegularWindowController(
+        preferredSize: preferredSize,
+        title: title,
+        delegate: _CallbackWindowDelegate(onDestroyed: onDestroyed),
+      );
 
   final RegularWindowController _controller;
 
-  int get nativeWindowHandleAddress {
-    return _windowPlatformBackend.nativeWindowHandleAddress(_controller);
-  }
+  int get nativeWindowHandleAddress => _windowPlatformBackend.nativeWindowHandleAddress(_controller);
 
   void setTitle(String title) {
     _controller.setTitle(title);
@@ -66,10 +57,7 @@ final class ExperimentalWindowRegistryHandle {
     required ExperimentalWindowController controller,
     required WidgetBuilder builder,
   }) {
-    final WindowEntry entry = WindowEntry(
-      controller: controller._controller,
-      builder: builder,
-    );
+    final entry = WindowEntry(controller: controller._controller, builder: builder);
     _registry.register(entry);
     return ExperimentalWindowEntryHandle._(entry);
   }
@@ -79,26 +67,17 @@ final class ExperimentalWindowRegistryHandle {
   }
 }
 
-ExperimentalWindowRegistryHandle experimentalWindowRegistryOf(
-  BuildContext context,
-) {
-  return ExperimentalWindowRegistryHandle._(WindowRegistry.of(context));
-}
+ExperimentalWindowRegistryHandle experimentalWindowRegistryOf(BuildContext context) =>
+    ExperimentalWindowRegistryHandle._(WindowRegistry.of(context));
 
 final class ExperimentalWindowHost extends StatelessWidget {
-  const ExperimentalWindowHost({
-    super.key,
-    required this.controller,
-    required this.child,
-  });
+  const ExperimentalWindowHost({required this.controller, required this.child, super.key});
 
   final ExperimentalWindowController controller;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    return RegularWindow(controller: controller._controller, child: child);
-  }
+  Widget build(BuildContext context) => RegularWindow(controller: controller._controller, child: child);
 }
 
 class _CallbackWindowDelegate with RegularWindowControllerDelegate {
