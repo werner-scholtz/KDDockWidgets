@@ -104,22 +104,25 @@ class _DockWindowPageState extends State<DockWindowPage> {
       duration: const Duration(milliseconds: 120),
       curve: Curves.easeOut,
       color: dockTargetActive ? theme.colorScheme.primary.withValues(alpha: 0.25) : Colors.transparent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          _buildTabStrip(theme, window, showTabHandles: showTabHandles),
-          const Divider(height: 1),
-          Expanded(
+      child: CustomScrollView(
+        slivers: <Widget>[
+          SliverToBoxAdapter(child: _buildTabStrip(theme, window, showTabHandles: showTabHandles)),
+          const SliverToBoxAdapter(child: Divider(height: 1)),
+          SliverFillRemaining(
+            hasScrollBody: false,
             child: selectedTab == null
                 ? Center(child: Text('Drop a tab here from another window', style: theme.textTheme.bodyLarge))
-                : Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                    child: _TabContentCard(
-                      tab: selectedTab,
-                      message:
-                          'This window is a valid drop target. Drag a tab '
-                          'from any other existing window and release over '
-                          'this dock area to move it here.',
+                : Align(
+                    alignment: Alignment.topLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                      child: _TabContentCard(
+                        tab: selectedTab,
+                        message:
+                            'This window is a valid drop target. Drag a tab '
+                            'from any other existing window and release over '
+                            'this dock area to move it here.',
+                      ),
                     ),
                   ),
           ),
