@@ -63,6 +63,14 @@ final class NativeDockDragCoordinator extends ChangeNotifier {
 
   bool get isNativeDragActive => _nativeDragActive;
 
+  bool get supportsWindowHeaderDockGesture {
+    return _nativeDockDragPlatformBackend.supportsWindowHeaderDockGesture;
+  }
+
+  bool get supportsLiveDetachedWindowDuringDrag {
+    return _nativeDockDragPlatformBackend.supportsLiveDetachedWindowDuringDrag;
+  }
+
   int? get mainWindowHandle {
     return _nativeDockDragPlatformBackend.mainWindowHandle;
   }

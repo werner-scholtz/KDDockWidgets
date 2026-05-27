@@ -5,9 +5,12 @@ import 'dart:ffi' as ffi;
 import 'native_dock_drag_backend.dart';
 
 final class WindowsNativeDockDragPlatformBackend
-  extends BaseNativeDockDragPlatformBackend {
+    extends BaseNativeDockDragPlatformBackend {
   static final _WindowsNativeDockDragBindings? _bindings =
       _WindowsNativeDockDragBindings.maybeLoad();
+
+  @override
+  bool get supportsLiveDetachedWindowDuringDrag => true;
 
   @override
   int? get mainWindowHandle {

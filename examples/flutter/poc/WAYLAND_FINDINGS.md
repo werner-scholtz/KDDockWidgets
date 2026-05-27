@@ -1,9 +1,11 @@
 # Wayland Findings
 
 Date: 2026-05-26
+Updated: 2026-05-27
 
 This note captures the outcome of the Wayland tear-off investigation for the
-Flutter POC in this directory.
+Flutter POC in this directory, plus the resulting whole-window header-dock
+fallback that now ships in the Linux runner.
 
 ## Goal
 
@@ -56,6 +58,57 @@ This POC stays on the safer deferred-detach architecture:
 - create the real native window on drop/release when the drag ends outside any
   dock target
 - use native cross-window hover routing only for already existing windows
+
+## Implemented Header-Dock Fallback
+
+Because Wayland cannot provide robust native title-bar move-and-dock behavior
+through the public GTK/Flutter path, the POC uses a Wayland-specific fallback
+for whole-window docking:
+
+- regular title-bar dragging remains ordinary window movement
+- whole-window docking for an already detached window starts from an explicit
+  header-bar dock region
+- that dock gesture is app-managed and reuses the existing same-app GTK
+  drag/drop routing and Dart whole-window docking state
+- hover targeting is cursor-based against already registered windows
+- the detached source window stays in place during the dock gesture instead of
+  trying to move under compositor ownership
+
+This keeps the supported behavior explicit:
+
+- Linux/Wayland exposes a fallback dock gesture, not parity behavior
+- live tear-off handoff to a newly created detached window during the same
+  pointer gesture remains out of scope
+
+## UX Contract
+
+The intended Wayland UX for this POC is:
+
+- tab dragging behavior is unchanged
+- dragging the ordinary title bar still just moves the window
+- detached windows expose a dedicated header-bar dock region for whole-window
+  docking into another existing window
+- releasing over no target leaves the detached window unchanged
+
+Using the full title bar as the dock gesture was intentionally not adopted for
+the first pass, because that would conflict with preserving ordinary native
+window movement semantics on Wayland.
+
+## Verification Guidance
+
+The fallback should be validated with both focused checks and manual smoke
+tests:
+
+1. Run the existing Flutter POC unit tests, including the focused
+   `test/dock_controller_test.dart` coverage for whole-window header drag
+   begin/hover/end semantics.
+2. Run `flutter analyze` from this directory after Dart-side capability or
+   runtime changes.
+3. Build and run the Linux desktop POC under Wayland, then verify:
+   regular title-bar drag still moves the window; the dock region starts
+   whole-window docking mode; hover highlights appear over other existing
+   windows; dropping over a target docks the detached window; releasing with no
+   target leaves it unchanged.
 
 ## Reliable Next-Step Options
 

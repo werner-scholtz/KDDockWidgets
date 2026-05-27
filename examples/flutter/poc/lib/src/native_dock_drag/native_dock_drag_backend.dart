@@ -3,6 +3,10 @@ library;
 abstract interface class NativeDockDragPlatformBackend {
   int? get mainWindowHandle;
 
+  bool get supportsWindowHeaderDockGesture;
+
+  bool get supportsLiveDetachedWindowDuringDrag;
+
   void setWindowHeaderDockTargetingMode(int mode);
 
   bool registerWindowHandle({
@@ -27,12 +31,17 @@ abstract base class BaseNativeDockDragPlatformBackend
   int? get mainWindowHandle => null;
 
   @override
+  bool get supportsWindowHeaderDockGesture => false;
+
+  @override
+  bool get supportsLiveDetachedWindowDuringDrag => false;
+
+  @override
   void setWindowHeaderDockTargetingMode(int mode) {}
 }
 
 final class UnsupportedNativeDockDragPlatformBackend
     extends BaseNativeDockDragPlatformBackend {
-
   @override
   bool registerWindowHandle({
     required int windowId,

@@ -106,17 +106,30 @@ final class DockRuntimeCoordinator {
 
     final ExperimentalWindowRegistryHandle registry =
         experimentalWindowRegistryOf(context);
+    final int? deferredDetachedWindowId =
+        controller.hasActiveDrag &&
+            !nativeDockDragCoordinator.supportsLiveDetachedWindowDuringDrag
+        ? controller.activeDetachedWindowId
+        : null;
     final Set<int> expectedWindowIds = controller.detachedWindows
+        .where(
+          (DockWindowModel window) => window.id != deferredDetachedWindowId,
+        )
         .map((DockWindowModel window) => window.id)
         .toSet();
 
     pocLog(
       'runtime syncDetachedNativeWindows expected=$expectedWindowIds '
+      'deferred=${deferredDetachedWindowId?.toString() ?? 'none'} '
       'open=${_detachedWindowHandles.keys.toList()} '
       'dragState=${controller.debugDragState()}',
     );
 
     for (final DockWindowModel window in controller.detachedWindows) {
+      if (window.id == deferredDetachedWindowId) {
+        continue;
+      }
+
       if (_detachedWindowHandles.containsKey(window.id)) {
         continue;
       }

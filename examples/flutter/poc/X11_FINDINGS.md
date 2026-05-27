@@ -1,0 +1,60 @@
+# X11 Findings
+
+Date: 2026-05-27
+
+This note captures the current X11 status for the Flutter POC in this
+directory.
+
+## Current Status
+
+The Flutter POC is not presently a reliable X11 validation target for the
+multi-window drag and docking work, because the main blocker appears to be
+upstream in Flutter Linux multi-window support rather than in the KDDockWidgets
+POC code.
+
+## What Was Observed
+
+- On Ubuntu 26.04 XFCE/X11, the bundled Flutter `examples/multiple_windows`
+  sample reproduces the same early failure pattern as this POC.
+- The crash happens before the POC-specific docking behavior becomes the
+  controlling issue.
+- The current Linux runner still contains an X11-specific live-follow path for
+  detached drag windows, and the common Linux GTK drag bridge is structured so
+  X11 can continue using that capability once the upstream launch path is
+  stable.
+
+## Implication For The POC
+
+The current X11 situation should be treated as blocked upstream for the
+multi-window Flutter path.
+
+That means:
+
+- X11 is not currently the place to prove or disprove the POC's header-dock UX
+  decisions.
+- The Linux runner split still keeps an X11-specific capability seam for live
+  detached-window follow behavior.
+- Once the upstream Flutter/X11 multi-window path is stable, the POC should be
+  re-smoke-tested on X11 to check for regressions in tab dragging, detached
+  window follow behavior, and ordinary title-bar movement.
+
+## Code State
+
+Relevant current code state:
+
+- shared Linux GTK drag/drop logic lives in `linux/runner/dock_drag_bridge.cc`
+- X11-specific capability helpers live in `linux/runner/dock_drag_bridge_x11.cc`
+
+This split is intentional: the shared GTK drag bridge stays common, while
+X11-specific capability code is isolated in its own runner file.
+
+## Verification Guidance
+
+When upstream Flutter/X11 multi-window support becomes stable enough to run the
+POC reliably, re-check:
+
+1. The app launches and opens additional Flutter windows without the earlier
+   `g_signal_connect_data` / `GLX BadAccess` failures.
+2. Existing tab drag behavior still works.
+3. Detached drag windows follow the pointer correctly on X11.
+4. Ordinary title-bar movement and drag/drop behavior still work on X11.

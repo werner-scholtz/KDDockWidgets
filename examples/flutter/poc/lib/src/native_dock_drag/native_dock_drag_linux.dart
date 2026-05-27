@@ -5,9 +5,21 @@ import 'dart:ffi' as ffi;
 import 'native_dock_drag_backend.dart';
 
 final class LinuxNativeDockDragPlatformBackend
-  extends BaseNativeDockDragPlatformBackend {
+    extends BaseNativeDockDragPlatformBackend {
   static final _LinuxNativeDockDragBindings? _bindings =
       _LinuxNativeDockDragBindings.maybeLoad();
+
+  @override
+  bool get supportsWindowHeaderDockGesture {
+    final _LinuxNativeDockDragBindings? bindings = _bindings;
+    return bindings != null && bindings.supportsWindowHeaderDockGesture();
+  }
+
+  @override
+  bool get supportsLiveDetachedWindowDuringDrag {
+    final _LinuxNativeDockDragBindings? bindings = _bindings;
+    return bindings != null && bindings.supportsLiveDetachedWindowDuringDrag();
+  }
 
   @override
   bool registerWindowHandle({
@@ -54,12 +66,16 @@ final class LinuxNativeDockDragPlatformBackend
 
 final class _LinuxNativeDockDragBindings {
   _LinuxNativeDockDragBindings._({
+    required this.supportsWindowHeaderDockGesture,
+    required this.supportsLiveDetachedWindowDuringDrag,
     required this.registerWindow,
     required this.unregisterWindow,
     required this.attachDragWindow,
     required this.startDrag,
   });
 
+  final bool Function() supportsWindowHeaderDockGesture;
+  final bool Function() supportsLiveDetachedWindowDuringDrag;
   final bool Function(int windowId, int nativeWindowHandle) registerWindow;
   final void Function(int windowId) unregisterWindow;
   final bool Function(int windowId, int anchorX, int anchorY) attachDragWindow;
@@ -68,6 +84,14 @@ final class _LinuxNativeDockDragBindings {
   static _LinuxNativeDockDragBindings? maybeLoad() {
     try {
       final ffi.DynamicLibrary library = ffi.DynamicLibrary.executable();
+      final int Function() supportsWindowHeaderDockGestureRaw = library
+          .lookupFunction<ffi.Int32 Function(), int Function()>(
+            'KddwDockDragBridge_SupportsWindowHeaderDockGesture',
+          );
+      final int Function() supportsLiveDetachedWindowDuringDragRaw = library
+          .lookupFunction<ffi.Int32 Function(), int Function()>(
+            'KddwDockDragBridge_SupportsLiveDetachedWindowDuringDrag',
+          );
       final int Function(int, int) registerWindowRaw = library
           .lookupFunction<
             ffi.Int32 Function(ffi.Int32, ffi.IntPtr),
@@ -89,6 +113,10 @@ final class _LinuxNativeDockDragBindings {
           >('KddwDockDragBridge_StartDrag');
 
       return _LinuxNativeDockDragBindings._(
+        supportsWindowHeaderDockGesture: () =>
+            supportsWindowHeaderDockGestureRaw() != 0,
+        supportsLiveDetachedWindowDuringDrag: () =>
+            supportsLiveDetachedWindowDuringDragRaw() != 0,
         registerWindow: (int windowId, int nativeWindowHandle) =>
             registerWindowRaw(windowId, nativeWindowHandle) != 0,
         unregisterWindow: unregisterWindow,

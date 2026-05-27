@@ -7,6 +7,10 @@ G_BEGIN_DECLS
 
 void dock_drag_bridge_init(FlBinaryMessenger* messenger);
 
+gboolean KddwDockDragBridge_SupportsWindowHeaderDockGesture();
+
+gboolean KddwDockDragBridge_SupportsLiveDetachedWindowDuringDrag();
+
 gboolean KddwDockDragBridge_RegisterWindow(gint window_id,
                                            gpointer fl_view_handle);
 
