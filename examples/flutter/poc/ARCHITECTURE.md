@@ -6,6 +6,24 @@ This note describes the current control path for the Flutter multi-window POC,
 with emphasis on the seams between the Dart controller/runtime layer and the
 native per-platform drag bridges.
 
+## Why this shape
+
+The experimental Flutter multi-window API is promising, but platform behavior
+is still meaningfully different.
+
+The current POC therefore keeps most policy in one place and asks each native
+bridge to provide the signals Flutter does not expose consistently:
+
+- keep the model and docking policy in Dart
+- use platform-native bridges for cross-window targeting and drag completion
+- create or attach real Flutter windows according to each platform's proven
+   capabilities
+
+Wayland is the main reason this stays explicit. Dart-side positions are
+window-local, and Flutter does not expose enough reliable cross-window state to
+compare those coordinates as if they were desktop-global. The POC therefore
+does not infer cross-window drops from synthetic Dart-side window geometry.
+
 ## Main Pieces
 
 - `lib/src/dock_controller.dart` owns the docking model and high-level drag
@@ -23,7 +41,8 @@ native per-platform drag bridges.
 
 ## Root Window Registration
 
-The root window is not always available synchronously at startup.
+The root window's native handle is not always available synchronously at
+startup.
 
 The runtime therefore uses two registration paths in
 `lib/src/dock_runtime.dart`:
@@ -82,18 +101,20 @@ The exact gesture differs by platform:
 - Wayland uses a dedicated fallback header dock region rather than title-bar
   parity behavior.
 
-## Why the Capability Flags Matter
+## Runtime Gates
 
-The runtime intentionally does not special-case individual platforms in the
-core drag flow. Instead it asks the native backend what the current platform
-can support:
+The runtime intentionally avoids hard-coding platform names into the tab tear-
+off flow. Instead it asks the native backend for the pieces that change window
+creation or registration behavior:
 
 - `supportsLiveDetachedWindowDuringDrag`
-- `supportsWindowHeaderDockGesture`
 - `mainWindowHandle`
 
-That keeps most policy in one place and lets the platform notes document the
-differences explicitly.
+Whole-window docking itself is event-driven rather than gated by a separate
+Dart-side capability switch. When a platform bridge can detect a detached-
+window docking gesture, it emits `windowHeaderDragStarted` /
+`windowHeaderDragEnded` and the existing Dart docking model completes the
+operation.
 
 ## Files To Read Together
 

@@ -2,27 +2,12 @@
 
 Flutter POC for KDDockWidgets.
 
-This POC requires Flutter's `main` branch. It depends on Flutter's
+This POC requires Flutter's `master` branch. It depends on Flutter's
 experimental windowing APIs and internal `_window.dart` surface, so it should
 not be run against stable or beta SDKs.
 
-See also [PLATFORM_CAPABILITIES.md](PLATFORM_CAPABILITIES.md) for a quick
-cross-platform behavior matrix and [ARCHITECTURE.md](ARCHITECTURE.md) for the
-current runtime/native control path.
-
-See also [MACOS.md](MACOS.md) for the current macOS runner,
-bootstrap, and native drag/docking findings.
-
-See also [WAYLAND.md](WAYLAND.md) for the result of the
-Wayland live tear-off investigation that was intentionally removed from the
-runtime code after the POC reached the public GTK/Flutter API boundary.
-
-See also [WINDOWS.md](WINDOWS.md) for the current Windows
-native whole-window docking path and [X11.md](X11.md) for the
-current upstream X11 blocker findings.
-
-This example exercises the current native multi-window proxy-drag architecture
-around Flutter's experimental `WindowRegistry` / `RegularWindowController` API.
+This example exercises the current native multi-window drag architecture around
+Flutter's experimental `WindowRegistry` / `RegularWindowController` API.
 
 It keeps the drag interaction rooted in the source window and uses a platform
 native bridge to supply cross-window hover, drag completion, and whole-window
@@ -32,33 +17,24 @@ Detached windows render the same dock surface, but cross-window reattach still
 depends on the frontend supplying a real target-window routing signal. The
 example does not guess across windows from synthetic Dart-side window geometry.
 
-## Why this shape
+## Quick Navigation
 
-The experimental multi-window Flutter API is promising, but platform behavior
-is still meaningfully different.
-
-The current POC shape is:
-
-- keep the model and docking policy in Dart
-- use platform-native bridges for cross-window targeting and drag completion
-- create or attach real Flutter windows according to each platform's proven
-  capabilities
-
-On Wayland there is an extra constraint for this spike: Dart-side positions are
-window-local, and Flutter does not expose enough cross-window state to compare
-those coordinates as if they were desktop-global. Because of that, this example
-does not treat window rectangles reported from Dart as a trustworthy
-cross-window drop mechanism.
+- [PLATFORM_CAPABILITIES.md](PLATFORM_CAPABILITIES.md) is the current feature
+  matrix by platform.
+- [ARCHITECTURE.md](ARCHITECTURE.md) describes the Dart/runtime/native control
+  path.
+- [WINDOWS.md](WINDOWS.md), [MACOS.md](MACOS.md), [WAYLAND.md](WAYLAND.md), and
+  [X11.md](X11.md) contain platform-specific findings and verification notes.
 
 ## Requirements
 
-- Flutter `main` branch
+- Flutter `master` branch
 - `fvm`
 - Linux, Windows, or macOS desktop target
 - Flutter windowing enabled via `fvm flutter config --enable-windowing`
 
 This example uses `package:flutter/src/widgets/_window.dart`, so it is pinned to
-Flutter `main` via the local `.fvmrc` file.
+Flutter `master` via the local `.fvmrc` file.
 
 ## Run
 
@@ -101,7 +77,8 @@ fvm flutter analyze
   targets, whether that window is materialized during the drag or at drop time.
 - Move a tab into another existing window when the frontend can route a real
   target-window hover or drop signal.
-- Use `Dock Back` or close the detached window to reattach the tab.
+- Use `Dock Back` or close the detached window to return that window's tabs to
+  the main window.
 
 ## Explicit non-goals
 

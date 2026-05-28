@@ -2,19 +2,11 @@
 
 Date: 2026-05-27
 
-This note captures the current Windows status for the Flutter POC in this
-directory.
+This note captures the Windows-specific implementation details behind the
+Flutter POC. See `PLATFORM_CAPABILITIES.md` for the current cross-platform
+matrix.
 
-## Current Status
-
-Windows is the platform where the Flutter POC currently has the closest match
-to the intended native whole-window docking behavior.
-
-The Windows runner owns a native whole-window header-dock path for already
-registered windows and emits the corresponding method-channel events consumed by
-the existing Dart docking controller.
-
-## What Is Implemented
+## Implemented Behavior
 
 The Windows runner currently provides:
 
@@ -44,18 +36,6 @@ header docking, including:
 - cursor-based targeting against registered windows
 - moving-rect overlap scoring for native moving windows
 - a backend seam for selecting the active targeting mode from Dart
-
-## Implication For The POC
-
-The Windows behavior is the current native whole-window docking path for the
-POC.
-
-That means:
-
-- Windows remains the native title-bar move-and-dock path for the POC.
-- The native move loop and hover-target tracking both stay inside the runner.
-- The Dart controller path can stay small because completion is surfaced
-  through the existing method-channel events.
 
 ## Relevant Code
 

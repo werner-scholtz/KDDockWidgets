@@ -2,17 +2,11 @@
 
 Date: 2026-05-27
 
-This note captures the current macOS status for the Flutter POC in this
-directory and the main platform-specific findings that shaped the current
-implementation.
+This note records the macOS-specific findings that shaped the current POC
+implementation. See `PLATFORM_CAPABILITIES.md` for the current cross-platform
+matrix.
 
-## Current Status
-
-The Flutter POC now launches on macOS with Flutter's experimental windowing
-enabled and can create and manage real detached windows through the same Dart
-windowing layer used on the other desktop targets.
-
-The current macOS branch state includes a native drag bridge for:
+The current macOS runner includes a native drag bridge for:
 
 - registering Flutter-created `NSWindow` instances with the runner
 - routing tab-drag hover updates across already registered windows
@@ -106,9 +100,6 @@ This keeps the actual docking model in the existing Dart controller while the
 runner provides the missing macOS-native routing signals.
 
 ## Known Constraints
-
-The current macOS state should still be treated as a POC implementation, not a
-finished platform backend.
 
 Important current constraints:
 

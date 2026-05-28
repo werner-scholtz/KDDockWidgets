@@ -9,9 +9,9 @@ fallback that now ships in the Linux runner.
 
 ## Goal
 
-Prove whether a self-contained Flutter/GTK Linux POC can create a torn-off
-window on Wayland and hand the active drag over to that new window while the
-pointer is still down.
+Prove whether a self-contained Flutter/GTK Linux POC can hand an active drag
+over to a newly created torn-off window on Wayland while the pointer is still
+down.
 
 ## What Was Proven
 
@@ -91,7 +91,7 @@ The intended Wayland UX for this POC is:
 - releasing over no target leaves the detached window unchanged
 
 Using the full title bar as the dock gesture was intentionally not adopted for
-the first pass, because that would conflict with preserving ordinary native
+the first pass because that would conflict with preserving ordinary native
 window movement semantics on Wayland.
 
 ## Verification Guidance
