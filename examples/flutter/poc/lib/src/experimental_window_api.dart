@@ -20,7 +20,7 @@ final ExperimentalWindowPlatformBackend _windowPlatformBackend = _createWindowPl
 final class ExperimentalWindowController {
   ExperimentalWindowController({required Size preferredSize, required String title, VoidCallback? onDestroyed})
     : _controller = RegularWindowController(
-        preferredSize: preferredSize,
+        size: preferredSize,
         title: title,
         delegate: _CallbackWindowDelegate(onDestroyed: onDestroyed),
       );

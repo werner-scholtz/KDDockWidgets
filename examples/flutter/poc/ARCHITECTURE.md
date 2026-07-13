@@ -2,17 +2,17 @@
 
 Date: 2026-05-27
 
-This note describes the current control path for the Flutter multi-window POC,
-with emphasis on the seams between the Dart controller/runtime layer and the
-native per-platform drag bridges.
+This note describes the control path for the Flutter multi-window POC. It
+focuses on where the Dart controller/runtime layer meets the native
+per-platform drag bridges.
 
 ## Why this shape
 
 The experimental Flutter multi-window API is promising, but platform behavior
-is still meaningfully different.
+still differs a lot.
 
-The current POC therefore keeps most policy in one place and asks each native
-bridge to provide the signals Flutter does not expose consistently:
+The POC keeps most policy in one place and asks each native bridge for the
+signals Flutter does not expose consistently:
 
 - keep the model and docking policy in Dart
 - use platform-native bridges for cross-window targeting and drag completion
@@ -20,9 +20,9 @@ bridge to provide the signals Flutter does not expose consistently:
    capabilities
 
 Wayland is the main reason this stays explicit. Dart-side positions are
-window-local, and Flutter does not expose enough reliable cross-window state to
-compare those coordinates as if they were desktop-global. The POC therefore
-does not infer cross-window drops from synthetic Dart-side window geometry.
+window-local, meaning relative to one window. Flutter does not expose enough
+reliable cross-window state to treat those coordinates as desktop-global, so
+the POC does not infer cross-window drops from Dart-side window geometry.
 
 ## Main Pieces
 
@@ -53,12 +53,12 @@ The runtime therefore uses two registration paths in
   the native bridge for `mainWindowHandle` and retries registration after frame
   until the handle becomes available or the retry budget is exhausted.
 
-This delayed registration is intentional. It avoids trying to bind native drag
-tracking before Flutter's window/controller pair is fully materialized.
+This delay is intentional. It avoids binding native drag tracking before
+Flutter's window and controller pair is fully set up.
 
 ## Tab Tear-Off Path
 
-The current same-app tear-off path is:
+The same-app tear-off path is:
 
 1. Dart starts drag state in `DockController.beginDockedTabDrag(...)`.
 2. `NativeDockDragCoordinator.startDrag(...)` asks the active platform bridge
@@ -103,14 +103,14 @@ The exact gesture differs by platform:
 
 ## Runtime Gates
 
-The runtime intentionally avoids hard-coding platform names into the tab tear-
-off flow. Instead it asks the native backend for the pieces that change window
-creation or registration behavior:
+The runtime avoids hard-coding platform names into the tab tear-off flow.
+Instead it asks the native backend for the pieces that change window creation
+or registration:
 
 - `supportsLiveDetachedWindowDuringDrag`
 - `mainWindowHandle`
 
-Whole-window docking itself is event-driven rather than gated by a separate
+Whole-window docking is event-driven rather than controlled by a separate
 Dart-side capability switch. When a platform bridge can detect a detached-
 window docking gesture, it emits `windowHeaderDragStarted` /
 `windowHeaderDragEnded` and the existing Dart docking model completes the
@@ -118,7 +118,7 @@ operation.
 
 ## Files To Read Together
 
-For the current behavior, the most useful files to read as one slice are:
+The most useful files to read together are:
 
 - `lib/src/dock_controller.dart`
 - `lib/src/dock_runtime.dart`
@@ -128,5 +128,5 @@ For the current behavior, the most useful files to read as one slice are:
 - `macos/Runner/dock_drag_bridge.mm`
 - `linux/runner/dock_drag_bridge.cc`
 
-Those files together define the current architecture boundary between the Dart
-model and the platform-native drag/move tracking paths.
+Together these files define the boundary between the Dart model and the
+platform-native drag and move tracking paths.

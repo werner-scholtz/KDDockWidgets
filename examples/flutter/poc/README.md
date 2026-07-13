@@ -2,39 +2,60 @@
 
 Flutter POC for KDDockWidgets.
 
-This POC requires Flutter's `master` branch. It depends on Flutter's
-experimental windowing APIs and internal `_window.dart` surface, so it should
-not be run against stable or beta SDKs.
+This POC needs a Flutter `master` build. It uses Flutter's experimental
+windowing APIs and the internal `_window.dart` file, so do not run it against
+stable or beta SDKs.
 
-This example exercises the current native multi-window drag architecture around
-Flutter's experimental `WindowRegistry` / `RegularWindowController` API.
+Those internal APIs change often, so `.fvmrc` pins one known-good master commit
+instead of the floating `master` channel. That keeps the POC building as master
+moves on. To move to a newer master, install that commit and re-verify (see
+"Updating the pinned SDK" below).
 
-It keeps the drag interaction rooted in the source window and uses a platform
-native bridge to supply cross-window hover, drag completion, and whole-window
-docking signals back into the existing Dart docking controller.
+This example exercises the native multi-window drag setup built on Flutter's
+experimental `WindowRegistry` / `RegularWindowController` API.
 
-Detached windows render the same dock surface, but cross-window reattach still
-depends on the frontend supplying a real target-window routing signal. The
-example does not guess across windows from synthetic Dart-side window geometry.
+The drag stays rooted in the source window. A platform-native bridge sends
+cross-window hover, drag completion, and whole-window docking signals back into
+the existing Dart docking controller.
+
+Detached windows render the same dock surface, but reattaching across windows
+still needs the frontend to supply a real target-window routing signal. The
+example does not guess across windows from Dart-side window geometry.
 
 ## Quick Navigation
 
-- [PLATFORM_CAPABILITIES.md](PLATFORM_CAPABILITIES.md) is the current feature
-  matrix by platform.
+- [PLATFORMS.md](PLATFORMS.md) is the per-platform capability matrix and
+  findings.
 - [ARCHITECTURE.md](ARCHITECTURE.md) describes the Dart/runtime/native control
   path.
-- [WINDOWS.md](WINDOWS.md), [MACOS.md](MACOS.md), [WAYLAND.md](WAYLAND.md), and
-  [X11.md](X11.md) contain platform-specific findings and verification notes.
 
 ## Requirements
 
-- Flutter `master` branch
+- A Flutter `master` build, pinned to an exact commit in `.fvmrc`
 - `fvm`
 - Linux, Windows, or macOS desktop target
 - Flutter windowing enabled via `fvm flutter config --enable-windowing`
 
-This example uses `package:flutter/src/widgets/_window.dart`, so it is pinned to
-Flutter `master` via the local `.fvmrc` file.
+This example uses `package:flutter/src/widgets/_window.dart`, so `.fvmrc` pins a
+specific Flutter `master` commit. Running `fvm flutter` in this directory uses
+that commit automatically.
+
+## Updating the pinned SDK
+
+To move to a newer master (for a new windowing API or a fix), repin and
+re-verify:
+
+```bash
+cd examples/flutter/poc
+fvm use <master-commit-sha>   # updates .fvmrc and installs that SDK
+fvm flutter pub get
+fvm flutter analyze           # expect: No issues found
+fvm flutter test              # expect: all tests pass
+```
+
+If the new master renamed a windowing API, `analyze` points at the exact call
+site to update (for example, `RegularWindowController` once renamed its
+`preferredSize` argument to `size`).
 
 ## Run
 
@@ -61,17 +82,9 @@ fvm flutter analyze
 
 ## Current scope
 
-- On Windows, crossing the detach threshold can create the real detached native
-  window during the live drag and keep it following the cursor.
-- On macOS, the runner now follows the same broad architecture and includes a
-  first-pass native path for live detached-window follow and whole-window
-  title-bar docking.
-- On Linux/Wayland, new tear-offs still use the safer deferred-detach path and
-  whole-window docking uses a fallback header-region gesture instead of title-
-  bar parity behavior.
-- On Linux/X11, the current multi-window validation path appears blocked
-  upstream in Flutter, so X11 should not presently be treated as the main
-  behavior signal for this POC.
+Per-platform behavior differs. See [PLATFORMS.md](PLATFORMS.md) for the matrix
+and details. What you can do in the demo:
+
 - Drag a docked tab far enough to start a proxy drag.
 - Release outside every dock to create a real secondary window on all supported
   targets, whether that window is materialized during the drag or at drop time.
